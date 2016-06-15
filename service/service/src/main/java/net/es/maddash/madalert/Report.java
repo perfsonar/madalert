@@ -21,10 +21,10 @@ import javax.json.JsonObjectBuilder;
  * @author carcassi
  */
 public class Report {
-    private final Map<Integer, List<Problem>> siteProblems = new HashMap<>();
+    private final Map<String, List<Problem>> siteProblems = new HashMap<>();
     private final List<Problem> globalProblems = new ArrayList<>();
     private final int[] globalStats;
-    private final Map<Integer, int[]> siteStats = new HashMap<>();
+    private final Map<String, int[]> siteStats = new HashMap<>();
     private final List<String> sites;
     private final String meshName;
     private final String meshLocation;
@@ -32,33 +32,36 @@ public class Report {
     Report(Mesh mesh) {
         meshName = mesh.getName();
         meshLocation = mesh.getLocation();
-        sites = mesh.getSites();
+        sites = mesh.getAllNames();
         globalStats = new int[mesh.nSeverityLevels()];
-        for (int site = 0; site < mesh.getSites().size(); site++) {
-            int[] newSiteStats = new int[mesh.nSeverityLevels()];
-            for (int column = 0; column < mesh.getSites().size(); column++) {
-                if (column != site) {
-                    newSiteStats[mesh.statusFor(site, column, Mesh.CellHalf.INITIATED_BY_ROW)]++;
-                    if (mesh.isSplitCell()) {
-                        newSiteStats[mesh.statusFor(site, column, Mesh.CellHalf.INITIATED_BY_COLUMN)]++;
+        //init stats
+        for(String siteName : sites){
+            siteStats.put(siteName, new int[mesh.nSeverityLevels()]);
+        }
+        //calc stats
+        for (int row = 0; row < mesh.getRowNames().size(); row++) {
+            String rowName = mesh.getRowNames().get(row);
+            for (int column = 0; column < mesh.getColumnNames().size(); column++) {
+                if(!mesh.hasColumn(row, column)){
+                    //skip excluded columns
+                    continue;
+                }
+                String colName = mesh.getColumnNames().get(column);
+                for (int check = 0; check < mesh.getCheckCount(); check++){
+                    int status = mesh.statusFor(row, column, check);
+                    globalStats[status]++;
+                    siteStats.get(rowName)[status]++;
+                    if(!rowName.equals(colName)){
+                        //don't double count
+                        siteStats.get(colName)[status]++;
                     }
+                    
                 }
             }
-            for (int row = 0; row < mesh.getSites().size(); row++) {
-                if (row != site) {
-                    newSiteStats[mesh.statusFor(row, site, Mesh.CellHalf.INITIATED_BY_ROW)]++;
-                    globalStats[mesh.statusFor(row, site, Mesh.CellHalf.INITIATED_BY_ROW)]++;
-                    if (mesh.isSplitCell()) {
-                        newSiteStats[mesh.statusFor(row, site, Mesh.CellHalf.INITIATED_BY_COLUMN)]++;
-                        globalStats[mesh.statusFor(row, site, Mesh.CellHalf.INITIATED_BY_COLUMN)]++;
-                    }
-                }
-            }
-            siteStats.put(site, newSiteStats);
         }
     }
     
-    void addProblem(int site, Problem problem) {
+    void addProblem(String site, Problem problem) {
         List<Problem> problems = siteProblems.get(site);
         if (problems == null) {
             problems = new ArrayList<>();
@@ -75,7 +78,7 @@ public class Report {
         return globalProblems;
     }
     
-    public List<Problem> getSiteProblems(int site) {
+    public List<Problem> getSiteProblems(String site) {
         return (siteProblems.get(site) == null) ? Collections.emptyList() : siteProblems.get(site);
     }
     
@@ -87,7 +90,7 @@ public class Report {
         return globalProblems.stream().mapToInt(p -> p.getSeverity()).max().orElse(0);
     }
     
-    public int getSiteMaxSeverity(int site) {
+    public int getSiteMaxSeverity(String site) {
         return getSiteProblems(site).stream().mapToInt(p -> p.getSeverity()).max().orElse(0);
     }
     
@@ -103,10 +106,15 @@ public class Report {
         if (problems != null && !problems.isEmpty()) {
             JsonArrayBuilder globalProblems = Json.createArrayBuilder();
             for (Problem problem : problems) {
+                JsonArrayBuilder solutions = Json.createArrayBuilder();
+                for(String solution : problem.getSolutions()){
+                    solutions.add(solution);
+                }
                 globalProblems.add(Json.createObjectBuilder()
                     .add("name", problem.getName())
                     .add("severity", problem.getSeverity())
-                    .add("category", problem.getCategory()));
+                    .add("category", problem.getCategory())
+                    .add("solutions", solutions));
             }
             jsonSite.add("problems", globalProblems);
         }
@@ -127,13 +135,12 @@ public class Report {
         root.add("global", globalSite);
 
         JsonObjectBuilder jsonSites = Json.createObjectBuilder();
-        for (int site = 0; site < sites.size(); site++) {
-            String siteName = sites.get(site);
+        for (String site : sites) {
             JsonObjectBuilder jsonSite = Json.createObjectBuilder();
             addStats(jsonSite, siteStats.get(site));
             jsonSite.add("severity", getSiteMaxSeverity(site));
             addProblems(jsonSite, siteProblems.get(site));
-            jsonSites.add(siteName, jsonSite);
+            jsonSites.add(site, jsonSite);
         }
         root.add("sites", jsonSites);
         return root.build();

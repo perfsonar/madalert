@@ -12,6 +12,6 @@ package net.es.maddash.madalert;
  */
 public abstract class SiteRule {
     
-    abstract Rule site(int site);
+    public abstract Rule site(String site);
     
 }

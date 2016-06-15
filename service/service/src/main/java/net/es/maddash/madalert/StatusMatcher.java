@@ -12,7 +12,7 @@ package net.es.maddash.madalert;
  */
 public abstract class StatusMatcher {
     abstract class Instance {
-        public abstract void match(int row, int column, Mesh.CellHalf cellHalf, int status);
+        public abstract void match(int row, int column, int check, int status);
         public abstract boolean isMatched();
     }
     

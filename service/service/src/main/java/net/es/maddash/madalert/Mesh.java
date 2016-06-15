@@ -5,8 +5,13 @@
  */
 package net.es.maddash.madalert;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+
+import javax.json.JsonArray;
 import javax.json.JsonObject;
+import javax.json.JsonValue;
 
 /**
  * A mesh.
@@ -18,23 +23,7 @@ import javax.json.JsonObject;
  * @author carcassi
  */
 public class Mesh {
-    
-    // XXX: given that not all meshes have split cells, we may have to
-    // rethink this
-    public static enum CellHalf {INITIATED_BY_ROW(0), INITIATED_BY_COLUMN(1);
 
-        private final int index;
-
-        private CellHalf(int index) {
-            this.index = index;
-        }
-
-        public int getIndex() {
-            return index;
-        }
-        
-    };
-    
     private final JsonObject jObj;
     private final String meshLocation;
 
@@ -44,11 +33,37 @@ public class Mesh {
     }
     
     public boolean isSplitCell() {
-        return jObj.getJsonArray("grid").getJsonArray(0).getJsonArray(1).size() != 1;
+        return this.getCheckCount() != 1;
     }
     
-    public List<String> getSites() {
+    public List<String> getAllNames() {
+        HashMap<String, Boolean> nameMap = new HashMap<String, Boolean>();
+        List<String> nameList = new ArrayList<String>();
+        for(String row : this.getRowNames()){
+            nameMap.put(row, true);
+        }
+        for(String col : this.getColumnNames()){
+            nameMap.put(col, true);
+        }
+        nameList.addAll(nameMap.keySet());
+        return nameList;
+    }
+    
+    public List<String> getColumnNames() {
         return JsonUtil.toListString(jObj.getJsonArray("columnNames"));
+    }
+    
+    public List<String> getRowNames() {
+        JsonArray rows = jObj.getJsonArray("rows");
+        ArrayList<String> rowNames = new ArrayList<String>();
+        for(int i = 0; i < rows.size(); i++){
+            rowNames.add(rows.getJsonObject(i).getJsonObject("props").getString("label"));
+        }
+        return rowNames;
+    }
+    
+    public int getCheckCount() {
+        return jObj.getJsonArray("checkNames").size();
     }
     
     public List<String> getStatusLabels() {
@@ -72,8 +87,12 @@ public class Mesh {
         return jObj;
     }
     
-    public int statusFor(int row, int column, CellHalf half) {
-        return jObj.getJsonArray("grid").getJsonArray(row).getJsonArray(column).getJsonObject(half.getIndex()).getInt("status");
+    public int statusFor(int row, int column, int check) {
+        return jObj.getJsonArray("grid").getJsonArray(row).getJsonArray(column).getJsonObject(check).getInt("status");
+    }
+    
+    public boolean hasColumn(int row, int column){
+        return jObj.getJsonArray("grid").getJsonArray(row).get(column) != JsonValue.NULL;
     }
     
     public static Mesh from(JsonObject jObj) {

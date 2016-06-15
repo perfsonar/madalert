@@ -7,6 +7,7 @@ package net.es.maddash.madalert;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -18,11 +19,32 @@ import java.util.stream.Collectors;
 public class Madalert {
     public static final String INFRASTRUCTURE = "INFRASTRUCTURE";
     public static final String ACTUAL = "ACTUAL";
+    public static final String RULE_DEFAULT_KEY = "default";
+    private static Map<String, Rule> ruleMap = null;
     
     private Madalert() {
         // Prevent creation
     }
-        
+    
+    public static void setRules(Map<String, Rule> newRuleMap){
+        ruleMap = newRuleMap;
+    }
+    
+    public static Rule lookupRule(String name) {
+        if(ruleMap == null){
+            System.out.println("lookupRule: Null ruleMap so using defaultRule for " + name);
+            return defaultRule();
+        }else if(ruleMap.containsKey(name) && ruleMap.get(name) != null){
+            System.out.println("lookupRule: Found rule for grid " + name);
+            return ruleMap.get(name);
+        }else if(ruleMap.containsKey(RULE_DEFAULT_KEY) && ruleMap.get(RULE_DEFAULT_KEY) != null){
+            System.out.println("lookupRule: Applying defined default rule for " + name);
+            return ruleMap.get(RULE_DEFAULT_KEY);
+        }
+        System.out.println("lookupRule: No explicit or default defined so using hard-coded default for " + name);
+        return defaultRule();
+    }
+    
     public static Rule defaultRule() {
         return matchFirst(
                           rule(forAllSites(), matchStatus(3), new Problem("Grid is down", 3, INFRASTRUCTURE)),
@@ -32,13 +54,13 @@ public class Madalert {
                                                  rule(forSite(), matchStatus(3), new Problem("Site is down", 3, INFRASTRUCTURE)),
                                                  matchAll(
                                                           matchFirst(
-                                                                     rule(forInitiatedBySite(), matchStatus(3), new Problem("Site can't test", 3, INFRASTRUCTURE)),
-                                                                     rule(forInitiatedBySite(), matchStatus(3, 0.7), new Problem("Site mostly can't test", 3, INFRASTRUCTURE))),
+                                                                     rule(forCheck(0,1), matchStatus(3), new Problem("Site can't test", 3, INFRASTRUCTURE)),
+                                                                     rule(forCheck(0,1), matchStatus(3, 0.7), new Problem("Site mostly can't test", 3, INFRASTRUCTURE))),
                                                           matchFirst(
-                                                                     rule(forInitiatedOnSite(), matchStatus(3), new Problem("Site can't be tested", 3, INFRASTRUCTURE)),
-                                                                     rule(forInitiatedOnSite(), matchStatus(3, 0.7), new Problem("Site mostly can't be tested", 3, INFRASTRUCTURE))),
-                                                          rule(forSiteOutgoing(), matchStatus(new double[]{0.0, 0.5, 1.0, -1.0}, 0.7), new Problem("Outgoing test failures", 2, ACTUAL)),
-                                                          rule(forSiteIncoming(), matchStatus(new double[]{0.0, 0.5, 1.0, -1.0}, 0.7), new Problem("Incoming test failures", 2, ACTUAL))))));
+                                                                     rule(forCheck(1,0), matchStatus(3), new Problem("Site can't be tested", 3, INFRASTRUCTURE)),
+                                                                     rule(forCheck(1,0), matchStatus(3, 0.7), new Problem("Site mostly can't be tested", 3, INFRASTRUCTURE))),
+                                                          rule(forRow(), matchStatus(new double[]{0.0, 0.5, 1.0, -1.0}, 0.7), new Problem("Outgoing test failures", 2, ACTUAL)),
+                                                          rule(forColumn(), matchStatus(new double[]{0.0, 0.5, 1.0, -1.0}, 0.7), new Problem("Incoming test failures", 2, ACTUAL))))));
     }
     
     public static Rule rule(final TestSet testSet, final StatusMatcher matcher, final Problem problem) {
@@ -61,7 +83,7 @@ public class Madalert {
         return new SiteRule() {
 
             @Override
-            Rule site(int site) {
+            public Rule site(String site) {
                 return new Rule() {
 
                     @Override
@@ -86,7 +108,7 @@ public class Madalert {
             @Override
             boolean addToReport(Report report, Mesh mesh) {
                 boolean matched = false;
-                for (int site = 0; site < mesh.getSites().size(); site++) {
+                for (String site : mesh.getAllNames()) {
                     Rule rule = siteRule.site(site);
                     matched = rule.addToReport(report, mesh) || matched;
                 }
@@ -118,7 +140,7 @@ public class Madalert {
         return new SiteRule() {
 
             @Override
-            Rule site(int site) {
+            public Rule site(String site) {
                 return matchFirst(Arrays.asList(siteRules).stream()
                         .map(s -> s.site(site))
                         .collect(Collectors.toList()));
@@ -149,7 +171,7 @@ public class Madalert {
         return new SiteRule() {
 
             @Override
-            Rule site(int site) {
+            public Rule site(String site) {
                 return matchAll(Arrays.asList(siteRules).stream()
                         .map(s -> s.site(site))
                         .collect(Collectors.toList()));
@@ -163,16 +185,13 @@ public class Madalert {
 
             @Override
             boolean match(Mesh mesh, StatusMatcher matcher) {
-                int nSites = mesh.getSites().size();
                 StatusMatcher.Instance instance = matcher.prepareInstance(mesh);
-                for (int column = 0; column < nSites; column++) {
-                    for (int row = 0; row < nSites; row++) {
-                        if (column != row) {
-                            instance.match(row, column, Mesh.CellHalf.INITIATED_BY_ROW,
-                                    mesh.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_ROW));
-                            if (mesh.isSplitCell()) {
-                                instance.match(row, column, Mesh.CellHalf.INITIATED_BY_COLUMN,
-                                        mesh.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_COLUMN));
+                for (int row = 0; row < mesh.getRowNames().size(); row++) {
+                    for (int col = 0; col < mesh.getColumnNames().size(); col++) {
+                        if(mesh.hasColumn(row, col)){
+                            for(int check = 0; check < mesh.getCheckCount(); check++){
+                                instance.match(row, col, check,
+                                    mesh.statusFor(row, col, check));
                             }
                         }
                     }
@@ -182,17 +201,21 @@ public class Madalert {
         };
     }
     
-    static StatusMatcher matchStatus(final int status) {
+    public static StatusMatcher matchStatus(final int status) {
         return new StatusMatcher() {
 
             @Override
             public StatusMatcher.Instance prepareInstance(Mesh mesh) {
                 return new StatusMatcher.Instance() {
-            
+                    
+                    //this is an all or nothing match so default to true
                     private boolean result = true;
-
+                    //...but make sure we don't mark stuff matched if we never looked at it
+                    private boolean checked = false;
+                    
                     @Override
-                    public void match(int row, int column, Mesh.CellHalf cellHalf, int matchStatus) {
+                    public void match(int row, int column, int check, int matchStatus) {
+                        checked = true;
                         if (status != matchStatus) {
                             result = false;
                         }
@@ -200,14 +223,14 @@ public class Madalert {
 
                     @Override
                     public boolean isMatched() {
-                        return result;
+                        return (checked && result);
                     }
                 };
             }
         };
     }
     
-    static StatusMatcher matchStatus(final int status, final double threshold) {
+    public static StatusMatcher matchStatus(final int status, final double threshold) {
         return new StatusMatcher() {
 
             @Override
@@ -218,7 +241,7 @@ public class Madalert {
                     private double total = 0.0;
 
                     @Override
-                    public void match(int row, int column, Mesh.CellHalf cellHalf, int matchStatus) {
+                    public void match(int row, int column, int check, int matchStatus) {
                         total += 1.0;
                         if (status == matchStatus) {
                             matches += 1.0;
@@ -227,14 +250,14 @@ public class Madalert {
 
                     @Override
                     public boolean isMatched() {
-                        return total == 0.0 || (matches / total) >= threshold;
+                        return (total != 0.0 && (matches / total) >= threshold);
                     }
                 };
             }
         };
     }
     
-    static StatusMatcher matchStatus(final double[] weights, final double threshold) {
+    public static StatusMatcher matchStatus(final double[] weights, final double threshold) {
         return new StatusMatcher() {
 
             @Override
@@ -245,7 +268,7 @@ public class Madalert {
                     private double total = 0.0;
 
                     @Override
-                    public void match(int row, int column, Mesh.CellHalf cellHalf, int matchStatus) {
+                    public void match(int row, int column, int check, int matchStatus) {
                         double weight = weights[matchStatus];
                         if (weight >= 0.0 && weight <= 1.0) {
                             total += 1.0;
@@ -255,32 +278,31 @@ public class Madalert {
 
                     @Override
                     public boolean isMatched() {
-                        return total == 0.0 || (matches / total) >= threshold;
+                        return (total != 0.0 && (matches / total) >= threshold);
                     }
                 };
             }
         };
     }
     
-    static SiteTestSet forSite() {
+    public static SiteTestSet forSite() {
         return new SiteTestSet() {
 
             @Override
-            TestSet site(final int site) {
+            TestSet site(final String site) {
                 return new TestSet() {
 
                     @Override
                     boolean match(Mesh mesh, StatusMatcher matcher) {
-                        int nSites = mesh.getSites().size();
                         StatusMatcher.Instance instance = matcher.prepareInstance(mesh);
-                        for (int column = 0; column < nSites; column++) {
-                            for (int row = 0; row < nSites; row++) {
-                                if (column != row && (column == site || row == site)) {
-                                    instance.match(row, column, Mesh.CellHalf.INITIATED_BY_ROW,
-                                            mesh.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_ROW));
-                                    if (mesh.isSplitCell()) {
-                                        instance.match(row, column, Mesh.CellHalf.INITIATED_BY_COLUMN,
-                                                mesh.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_COLUMN));
+                        for (int row = 0; row < mesh.getRowNames().size(); row++) {
+                            String rowName = mesh.getRowNames().get(row);
+                            for (int col = 0; col < mesh.getColumnNames().size(); col++) {
+                                String colName = mesh.getColumnNames().get(col);
+                                if(mesh.hasColumn(row, col) && (rowName.equals(site) || colName.equals(site))){
+                                    for(int check = 0; check < mesh.getCheckCount(); check++){
+                                        instance.match(row, col, check,
+                                            mesh.statusFor(row, col, check));
                                     }
                                 }
                             }
@@ -292,28 +314,24 @@ public class Madalert {
         };
     }
     
-    static SiteTestSet forInitiatedBySite() {
+    public static SiteTestSet forRow() {
         return new SiteTestSet() {
 
             @Override
-            TestSet site(final int site) {
+            TestSet site(final String site) {
                 return new TestSet() {
 
                     @Override
                     boolean match(Mesh mesh, StatusMatcher matcher) {
-                        int nSites = mesh.getSites().size();
                         StatusMatcher.Instance instance = matcher.prepareInstance(mesh);
-                        for (int column = 0; column < nSites; column++) {
-                            for (int row = 0; row < nSites; row++) {
-                                if (column != row) {
-                                    if (row == site) {
-                                        instance.match(row, column, Mesh.CellHalf.INITIATED_BY_ROW,
-                                                mesh.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_ROW));
-                                    }
-                                    if (column == site) {
-                                        if (mesh.isSplitCell()) {
-                                            instance.match(row, column, Mesh.CellHalf.INITIATED_BY_COLUMN,
-                                                    mesh.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_COLUMN));
+                        for (int row = 0; row < mesh.getRowNames().size(); row++) {
+                            String rowName = mesh.getRowNames().get(row);
+                            if(site.equals(rowName)){
+                                for (int col = 0; col < mesh.getColumnNames().size(); col++) {
+                                    if(mesh.hasColumn(row, col)){
+                                        for (int check = 0; check < mesh.getCheckCount(); check++) {
+                                            instance.match(row, col, check,
+                                                    mesh.statusFor(row, col, check));
                                         }
                                     }
                                 }
@@ -326,87 +344,100 @@ public class Madalert {
         };
     }
     
-    static SiteTestSet forInitiatedOnSite() {
+    public static SiteTestSet forColumn() {
         return new SiteTestSet() {
 
             @Override
-            TestSet site(final int site) {
+            TestSet site(final String site) {
                 return new TestSet() {
 
                     @Override
                     boolean match(Mesh mesh, StatusMatcher matcher) {
-                        int nSites = mesh.getSites().size();
                         StatusMatcher.Instance instance = matcher.prepareInstance(mesh);
-                        for (int column = 0; column < nSites; column++) {
-                            for (int row = 0; row < nSites; row++) {
-                                if (column != row) {
-                                    if (row == site) {
-                                        if (mesh.isSplitCell()) {
-                                            instance.match(row, column, Mesh.CellHalf.INITIATED_BY_COLUMN,
-                                                    mesh.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_COLUMN));
+                        for (int row = 0; row < mesh.getRowNames().size(); row++) {
+                            for (int col = 0; col < mesh.getColumnNames().size(); col++) {
+                                String colName = mesh.getColumnNames().get(col);
+                                if(site.equals(colName) && mesh.hasColumn(row, col)){
+                                    for (int check = 0; check < mesh.getCheckCount(); check++) {
+                                        instance.match(row, col, check,
+                                                mesh.statusFor(row, col, check));
+                                    }
+                                }
+                            }
+                        }
+                        return instance.isMatched();
+                    }
+                };
+            }
+        };
+    }
+    
+    public static SiteTestSet forCell(String rowSite, String colSite, int rowCheck, int colCheck) {
+        return new SiteTestSet() {
+
+            @Override
+            TestSet site(final String site) {
+                return new TestSet() {
+
+                    @Override
+                    boolean match(Mesh mesh, StatusMatcher matcher) {
+                        StatusMatcher.Instance instance = matcher.prepareInstance(mesh);
+                        for (int row = 0; row < mesh.getRowNames().size(); row++) {
+                            String rowName = mesh.getRowNames().get(row);
+                            if(!rowName.equals(site) && !rowName.equals(rowSite)){
+                                continue;
+                            }
+                            for (int col = 0; col < mesh.getColumnNames().size(); col++) {
+                                String colName = mesh.getColumnNames().get(col);
+                                if(rowName.equals(site) && !colName.equals(colSite)){
+                                    continue;
+                                }else if(rowName.equals(rowSite) && !colName.equals(site)){
+                                    continue;
+                                }else if( mesh.hasColumn(row, col)){
+                                    if(rowName.equals(rowSite) && rowCheck >= 0){
+                                        instance.match(row, col, rowCheck, mesh.statusFor(row, col, rowCheck));
+                                    }else if(colName.equals(colSite) && colCheck >= 0){
+                                        instance.match(row, col, colCheck, mesh.statusFor(row, col, colCheck));
+                                    }else{
+                                        for (int check = 0; check < mesh.getCheckCount(); check++) {
+                                            instance.match(row, col, check, mesh.statusFor(row, col, check));
                                         }
                                     }
-                                    if (column == site) {
-                                        instance.match(row, column, Mesh.CellHalf.INITIATED_BY_ROW,
-                                                mesh.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_ROW));
+                                }
+                            }
+                        }
+                        return instance.isMatched();
+                    }
+                };
+            }
+        };
+    }
+    
+    public static SiteTestSet forCheck(int rowCheck, int colCheck) {
+        return new SiteTestSet() {
+
+            @Override
+            TestSet site(final String site) {
+                return new TestSet() {
+
+                    @Override
+                    boolean match(Mesh mesh, StatusMatcher matcher) {
+                        StatusMatcher.Instance instance = matcher.prepareInstance(mesh);
+                        for (int row = 0; row < mesh.getRowNames().size(); row++) {
+                            String rowName = mesh.getRowNames().get(row);
+                            for (int col = 0; col < mesh.getColumnNames().size(); col++) {
+                                String colName = mesh.getColumnNames().get(col);
+                                if( mesh.hasColumn(row, col)){
+                                    if(rowCheck >= 0 && site.equals(rowName)){
+                                        instance.match(row, col, rowCheck,
+                                                mesh.statusFor(row, col, rowCheck));
+                                    }
+                                    //only add column check, if different row name or same row but different check
+                                    if(colCheck >= 0 && site.equals(colName) && !(rowName.equals(colName) && rowCheck == colCheck)){
+                                        instance.match(row, col, colCheck,
+                                                mesh.statusFor(row, col, colCheck));
                                     }
                                 }
-                            }
-                        }
-                        return instance.isMatched();
-                    }
-                };
-            }
-        };
-    }
-    
-    static SiteTestSet forSiteOutgoing() {
-        return new SiteTestSet() {
-
-            @Override
-            TestSet site(final int site) {
-                return new TestSet() {
-
-                    @Override
-                    boolean match(Mesh mesh, StatusMatcher matcher) {
-                        int nSites = mesh.getSites().size();
-                        StatusMatcher.Instance instance = matcher.prepareInstance(mesh);
-                        for (int column = 0; column < nSites; column++) {
-                            if (column != site) {
-                                if (mesh.isSplitCell()) {
-                                    instance.match(site, column, Mesh.CellHalf.INITIATED_BY_COLUMN,
-                                            mesh.statusFor(site, column, Mesh.CellHalf.INITIATED_BY_COLUMN));
-                                }
-                                instance.match(site, column, Mesh.CellHalf.INITIATED_BY_ROW,
-                                        mesh.statusFor(site, column, Mesh.CellHalf.INITIATED_BY_ROW));
-                            }
-                        }
-                        return instance.isMatched();
-                    }
-                };
-            }
-        };
-    }
-    
-    static SiteTestSet forSiteIncoming() {
-        return new SiteTestSet() {
-
-            @Override
-            TestSet site(final int site) {
-                return new TestSet() {
-
-                    @Override
-                    boolean match(Mesh mesh, StatusMatcher matcher) {
-                        int nSites = mesh.getSites().size();
-                        StatusMatcher.Instance instance = matcher.prepareInstance(mesh);
-                        for (int row = 0; row < nSites; row++) {
-                            if (row != site) {
-                                if (mesh.isSplitCell()) {
-                                    instance.match(row, site, Mesh.CellHalf.INITIATED_BY_COLUMN,
-                                            mesh.statusFor(row, site, Mesh.CellHalf.INITIATED_BY_COLUMN));
-                                }
-                                instance.match(row, site, Mesh.CellHalf.INITIATED_BY_ROW,
-                                        mesh.statusFor(row, site, Mesh.CellHalf.INITIATED_BY_ROW));
                             }
                         }
                         return instance.isMatched();

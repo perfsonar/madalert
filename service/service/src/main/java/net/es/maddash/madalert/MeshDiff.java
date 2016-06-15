@@ -5,11 +5,8 @@
  */
 package net.es.maddash.madalert;
 
-import java.math.BigDecimal;
-import java.util.List;
 import javax.json.Json;
 import javax.json.JsonArrayBuilder;
-import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 
 /**
@@ -20,8 +17,11 @@ import javax.json.JsonObjectBuilder;
 public class MeshDiff {
     
     static Mesh calculateDiff(Mesh mesh1, Mesh mesh2) {
-        if (!mesh1.getSites().equals(mesh2.getSites())) {
-            throw new RuntimeException("Cannot diff two meshes with a different site list");
+        if (!mesh1.getRowNames().equals(mesh2.getRowNames())) {
+            throw new RuntimeException("Cannot diff two meshes with a different set of rows");
+        }
+        if (!mesh1.getColumnNames().equals(mesh2.getColumnNames())) {
+            throw new RuntimeException("Cannot diff two meshes with a different set of columns");
         }
         if (!mesh1.getStatusLabels().equals(mesh2.getStatusLabels())) {
             throw new RuntimeException("Cannot diff two meshes with a different status labels");
@@ -37,33 +37,44 @@ public class MeshDiff {
         diffMesh.add("columnProps", mesh1.toJson().getJsonArray("columnProps"));
         diffMesh.add("checkNames", mesh1.toJson().getJsonArray("checkNames"));
         JsonArrayBuilder resultGrid = Json.createArrayBuilder();
-        for (int row = 0; row < mesh1.getSites().size(); row++) {
+        for (int row = 0; row < mesh1.getRowNames().size(); row++) {
             JsonArrayBuilder resultRow = Json.createArrayBuilder();
-            for (int column = 0; column < mesh1.getSites().size(); column++) {
-                if (row == column) {
-                    resultRow.addNull();
-                } else if (mesh1.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_ROW)
-                        == mesh2.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_ROW)) {
-                    resultRow.add(Json.createArrayBuilder().add(Json.createObjectBuilder().add("message", "No difference")
-                                .add("status", mesh1.getStatusLabels().size() - 1)
-                                .add("prevCheckTime", 0)
-                                .add("uri", ""))
-                            .add(Json.createObjectBuilder().add("message", "No difference")
-                                .add("status", mesh1.getStatusLabels().size() - 1)
-                                .add("prevCheckTime", 0)
-                                .add("uri", "")));
-                } else {
-                    resultRow.add(Json.createArrayBuilder().add(Json.createObjectBuilder().add("message", "Difference found")
-                                .add("status", mesh1.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_ROW))
-                                .add("prevCheckTime", 0)
-                                .add("uri", ""))
-                            .add(Json.createObjectBuilder().add("message", "Difference found")
-                                .add("status", mesh2.statusFor(row, column, Mesh.CellHalf.INITIATED_BY_ROW))
-                                .add("prevCheckTime", 0)
-                                .add("uri", "")));
+            for (int column = 0; column < mesh1.getColumnNames().size(); column++) {
+                if (mesh1.hasColumn(row, column) != mesh2.hasColumn(row, column)) {
+                    resultRow.add(Json.createArrayBuilder().add(Json.createObjectBuilder().add("message", "Difference found. Missing column.")
+                            .add("status", -1)
+                            .add("prevCheckTime", 0)
+                            .add("uri", ""))
+                            .add(Json.createObjectBuilder().add("message", "Difference found. Missing column.")
+                                    .add("status", -1)
+                                    .add("prevCheckTime", 0)
+                                    .add("uri", "")));
+                    continue;
                 }
+                for (int check = 0; check < mesh1.getCheckCount(); check++) {
+                    if (mesh1.statusFor(row, column, check)
+                            == mesh2.statusFor(row, column, check)) {
+                        resultRow.add(Json.createArrayBuilder().add(Json.createObjectBuilder().add("message", "No difference")
+                                .add("status", mesh1.getStatusLabels().size() - 1)
+                                .add("prevCheckTime", 0)
+                                .add("uri", ""))
+                                .add(Json.createObjectBuilder().add("message", "No difference")
+                                        .add("status", mesh1.getStatusLabels().size() - 1)
+                                        .add("prevCheckTime", 0)
+                                        .add("uri", "")));
+                    } else {
+                        resultRow.add(Json.createArrayBuilder().add(Json.createObjectBuilder().add("message", "Difference found")
+                                .add("status", mesh1.statusFor(row, column,check))
+                                .add("prevCheckTime", 0)
+                                .add("uri", ""))
+                                .add(Json.createObjectBuilder().add("message", "Difference found")
+                                        .add("status", mesh2.statusFor(row, column, check))
+                                        .add("prevCheckTime", 0)
+                                        .add("uri", "")));
+                    }
+                }
+                resultGrid.add(resultRow);
             }
-            resultGrid.add(resultRow);
         }
         diffMesh.add("grid", resultGrid);
         diffMesh.add("rows", mesh1.toJson().getJsonArray("rows"));

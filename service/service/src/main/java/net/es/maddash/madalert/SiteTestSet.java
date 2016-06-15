@@ -12,6 +12,6 @@ package net.es.maddash.madalert;
  */
 public abstract class SiteTestSet {
     
-    abstract TestSet site(int site);
+    abstract TestSet site(String site);
     
 }

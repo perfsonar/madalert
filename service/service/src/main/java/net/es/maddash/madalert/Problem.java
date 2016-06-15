@@ -5,6 +5,8 @@
  */
 package net.es.maddash.madalert;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -16,11 +18,17 @@ public class Problem {
     private final String name;
     private final int severity;
     private final String category;
-
+    private final List<String> solutions;
+    
     public Problem(String name, int severity, String category) {
+        this(name, severity, category, new ArrayList<String>());
+    }
+    
+    public Problem(String name, int severity, String category, List<String> solutions) {
         this.name = name;
         this.severity = severity;
         this.category = category;
+        this.solutions = solutions;
     }
 
     public String getName() {
@@ -33,6 +41,10 @@ public class Problem {
 
     public int getSeverity() {
         return severity;
+    }
+    
+    public List<String> getSolutions() {
+        return solutions;
     }
 
     @Override
