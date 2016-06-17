@@ -269,6 +269,9 @@ public class Madalert {
 
                     @Override
                     public void match(int row, int column, int check, int matchStatus) {
+                        if(matchStatus >= weights.length){
+                            return;
+                        }
                         double weight = weights[matchStatus];
                         if (weight >= 0.0 && weight <= 1.0) {
                             total += 1.0;
