@@ -6,7 +6,6 @@
 package net.es.maddash.madalert;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import javax.json.JsonArray;
@@ -22,31 +21,14 @@ import javax.json.JsonValue;
  *
  * @author carcassi
  */
-public class Mesh {
+public class JsonMesh extends BaseMesh{
 
     private final JsonObject jObj;
     private final String meshLocation;
 
-    private Mesh(JsonObject jObj, String meshLocation) {
+    private JsonMesh(JsonObject jObj, String meshLocation) {
         this.jObj = jObj;
         this.meshLocation = meshLocation;
-    }
-    
-    public boolean isSplitCell() {
-        return this.getCheckCount() != 1;
-    }
-    
-    public List<String> getAllNames() {
-        HashMap<String, Boolean> nameMap = new HashMap<String, Boolean>();
-        List<String> nameList = new ArrayList<String>();
-        for(String row : this.getRowNames()){
-            nameMap.put(row, true);
-        }
-        for(String col : this.getColumnNames()){
-            nameMap.put(col, true);
-        }
-        nameList.addAll(nameMap.keySet());
-        return nameList;
     }
     
     public List<String> getColumnNames() {
@@ -78,11 +60,6 @@ public class Mesh {
         return jObj.getString("name");
     }
     
-    public int nSeverityLevels() {
-        // TODO: get it from the mesh
-        return 4;
-    }
-    
     public JsonObject toJson() {
         return jObj;
     }
@@ -95,11 +72,11 @@ public class Mesh {
         return jObj.getJsonArray("grid").getJsonArray(row).get(column) != JsonValue.NULL;
     }
     
-    public static Mesh from(JsonObject jObj) {
-        return new Mesh(jObj, null);
+    public static JsonMesh from(JsonObject jObj) {
+        return new JsonMesh(jObj, null);
     }
     
-    public static Mesh from(JsonObject jObj, String meshLocation) {
-        return new Mesh(jObj, meshLocation);
+    public static JsonMesh from(JsonObject jObj, String meshLocation) {
+        return new JsonMesh(jObj, meshLocation);
     }
 }

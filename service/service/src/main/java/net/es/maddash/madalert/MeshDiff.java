@@ -16,7 +16,7 @@ import javax.json.JsonObjectBuilder;
  */
 public class MeshDiff {
     
-    static Mesh calculateDiff(Mesh mesh1, Mesh mesh2) {
+    static JsonMesh calculateDiff(JsonMesh mesh1, JsonMesh mesh2) {
         if (!mesh1.getRowNames().equals(mesh2.getRowNames())) {
             throw new RuntimeException("Cannot diff two meshes with a different set of rows");
         }
@@ -79,10 +79,10 @@ public class MeshDiff {
         diffMesh.add("grid", resultGrid);
         diffMesh.add("rows", mesh1.toJson().getJsonArray("rows"));
         
-        return Mesh.from(diffMesh.build());
+        return JsonMesh.from(diffMesh.build());
     }
     
-    public static Mesh diff(Mesh mesh1, Mesh mesh2) {
+    public static JsonMesh diff(JsonMesh mesh1, JsonMesh mesh2) {
         return calculateDiff(mesh1, mesh2);
     }
 }

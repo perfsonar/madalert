@@ -19,6 +19,8 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.WebTarget;
+
+import net.es.maddash.madalert.JsonMesh;
 import net.es.maddash.madalert.Madalert;
 import net.es.maddash.madalert.Mesh;
 import net.es.maddash.madalert.MeshDiff;
@@ -49,9 +51,9 @@ public class DiffResource {
             client = javax.ws.rs.client.ClientBuilder.newClient();
             WebTarget target1 = client.target(url1);
             WebTarget target2 = client.target(url2);
-            Mesh mesh1 = Mesh.from(Json.createReader(target1.request(javax.ws.rs.core.MediaType.APPLICATION_JSON).get(InputStream.class)).readObject(), url1);
-            Mesh mesh2 = Mesh.from(Json.createReader(target2.request(javax.ws.rs.core.MediaType.APPLICATION_JSON).get(InputStream.class)).readObject(), url2);
-            Mesh diff = MeshDiff.diff(mesh1, mesh2);
+            JsonMesh mesh1 = JsonMesh.from(Json.createReader(target1.request(javax.ws.rs.core.MediaType.APPLICATION_JSON).get(InputStream.class)).readObject(), url1);
+            JsonMesh mesh2 = JsonMesh.from(Json.createReader(target2.request(javax.ws.rs.core.MediaType.APPLICATION_JSON).get(InputStream.class)).readObject(), url2);
+            JsonMesh diff = MeshDiff.diff(mesh1, mesh2);
             return diff.toJson().toString();
         } catch(Exception ex) {
             return "{ \"" + ex.getMessage() + "\" }";

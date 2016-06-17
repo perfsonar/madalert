@@ -19,8 +19,9 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.WebTarget;
+
+import net.es.maddash.madalert.JsonMesh;
 import net.es.maddash.madalert.Madalert;
-import net.es.maddash.madalert.Mesh;
 import net.es.maddash.madalert.Problem;
 import net.es.maddash.madalert.Report;
 import net.es.maddash.madalert.Rule;
@@ -52,7 +53,7 @@ public class ReportResource {
             long phase1 = System.nanoTime();
             WebTarget resource = webTarget;
 //            String output = resource.request(javax.ws.rs.core.MediaType.APPLICATION_JSON).get(String.class);
-            Mesh mesh = Mesh.from(Json.createReader(resource.request(javax.ws.rs.core.MediaType.APPLICATION_JSON).get(InputStream.class)).readObject(), jsonUrl);
+            JsonMesh mesh = JsonMesh.from(Json.createReader(resource.request(javax.ws.rs.core.MediaType.APPLICATION_JSON).get(InputStream.class)).readObject(), jsonUrl);
             long phase2 = System.nanoTime();
             Report report = Madalert.lookupRule(mesh.getName()).createReport(mesh);
             long phase3 = System.nanoTime();

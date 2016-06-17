@@ -14,7 +14,7 @@ import javax.json.JsonArray;
  *
  * @author carcassi
  */
-class JsonUtil {
+public class JsonUtil {
     
     /**
      * Adapts a JSON array to a Java List.
