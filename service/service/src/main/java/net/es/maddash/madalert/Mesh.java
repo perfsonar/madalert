@@ -1,82 +1,83 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package net.es.maddash.madalert;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import javax.json.JsonArray;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
-
 /**
- * A mesh.
- * <p>
- * The actual data of the mash is represented internally by one of the JSON
- * specifications. This class provides JSON to Java bindings and other
- * view-like functionality.
+ * An interface for defining meshes independent of data source
+ * 
+ * @author alake
  *
- * @author carcassi
  */
-public class JsonMesh extends BaseMesh{
-
-    private final JsonObject jObj;
-    private final String meshLocation;
-
-    private JsonMesh(JsonObject jObj, String meshLocation) {
-        this.jObj = jObj;
-        this.meshLocation = meshLocation;
-    }
+public interface Mesh {
     
-    public List<String> getColumnNames() {
-        return JsonUtil.toListString(jObj.getJsonArray("columnNames"));
-    }
+    /**
+     * Returns if there is more than one check in cells
+     * @return true if more than one check in cells, false otherwise
+     */
+    public boolean isSplitCell();
     
-    public List<String> getRowNames() {
-        JsonArray rows = jObj.getJsonArray("rows");
-        ArrayList<String> rowNames = new ArrayList<String>();
-        for(int i = 0; i < rows.size(); i++){
-            rowNames.add(rows.getJsonObject(i).getJsonObject("props").getString("label"));
-        }
-        return rowNames;
-    }
+    /**
+     * Returns list of all unique names found in rows and columns
+     * @return list of all unique names found in rows and columns
+     */
+    public List<String> getAllNames();
     
-    public int getCheckCount() {
-        return jObj.getJsonArray("checkNames").size();
-    }
+    /**
+     * Returns list of all the column names
+     * @return List of all the column names
+     */
+    public List<String> getColumnNames();
     
-    public List<String> getStatusLabels() {
-        return JsonUtil.toListString(jObj.getJsonArray("statusLabels"));
-    }
-
-    public String getLocation() {
-        return meshLocation;
-    }
+    /**
+     * Returns list of all the row names
+     * @return List of all the row names
+     */
+    public List<String> getRowNames();
     
-    public String getName() {
-        return jObj.getString("name");
-    }
+    /**
+     * Returns a count of the number of checks
+     * @return List of all the row names
+     */
+    public int getCheckCount();
     
-    public JsonObject toJson() {
-        return jObj;
-    }
+    /**
+     * Returns a list of human-readable labels for each possible status
+     * @return a list of human-readable labels for each possible status
+     */
+    public List<String> getStatusLabels();
     
-    public int statusFor(int row, int column, int check) {
-        return jObj.getJsonArray("grid").getJsonArray(row).getJsonArray(column).getJsonObject(check).getInt("status");
-    }
+    /**
+     * Returns the URL of the mesh. This can be null.
+     * @return the URL of the mesh or null if not specified
+     */
+    public String getLocation();
     
-    public boolean hasColumn(int row, int column){
-        return jObj.getJsonArray("grid").getJsonArray(row).get(column) != JsonValue.NULL;
-    }
+    /**
+     * Returns the name of the mesh
+     * @return the name of the mesh
+     */
+    public String getName();
     
-    public static JsonMesh from(JsonObject jObj) {
-        return new JsonMesh(jObj, null);
-    }
+    /**
+     * Returns the number of severity levels
+     * @return the number of severity levels
+     */
+    public int nSeverityLevels();
     
-    public static JsonMesh from(JsonObject jObj, String meshLocation) {
-        return new JsonMesh(jObj, meshLocation);
-    }
+    /**
+     * The status of the check at the given point in the grid.
+     * @param row the row index
+     * @param column the column index
+     * @param check the check index
+     * @return the status of the given check
+     */
+    public int statusFor(int row, int column, int check);
+    
+    /**
+     * Returns true if there is a non-null value at the given row and column
+     * @param row the row index
+     * @param column the column index 
+     * @return true if there is a non-null value at the given row and column
+     */
+    public boolean hasColumn(int row, int column);
 }
