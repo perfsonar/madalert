@@ -32,16 +32,12 @@ public class Madalert {
     
     public static Rule lookupRule(String name) {
         if(ruleMap == null){
-            System.out.println("lookupRule: Null ruleMap so using defaultRule for " + name);
             return defaultRule();
         }else if(ruleMap.containsKey(name) && ruleMap.get(name) != null){
-            System.out.println("lookupRule: Found rule for grid " + name);
             return ruleMap.get(name);
         }else if(ruleMap.containsKey(RULE_DEFAULT_KEY) && ruleMap.get(RULE_DEFAULT_KEY) != null){
-            System.out.println("lookupRule: Applying defined default rule for " + name);
             return ruleMap.get(RULE_DEFAULT_KEY);
         }
-        System.out.println("lookupRule: No explicit or default defined so using hard-coded default for " + name);
         return defaultRule();
     }
     
