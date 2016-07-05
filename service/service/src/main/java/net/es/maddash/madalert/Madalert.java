@@ -5,6 +5,7 @@
  */
 package net.es.maddash.madalert;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -79,7 +80,7 @@ public class Madalert {
         return new SiteRule() {
 
             @Override
-            public Rule site(String site) {
+            public Rule site(final String site) {
                 return new Rule() {
 
                     @Override
@@ -137,9 +138,11 @@ public class Madalert {
 
             @Override
             public Rule site(String site) {
-                return matchFirst(Arrays.asList(siteRules).stream()
-                        .map(s -> s.site(site))
-                        .collect(Collectors.toList()));
+                List<Rule> rules = new ArrayList<Rule>();
+                for(SiteRule sr : Arrays.asList(siteRules)){
+                    rules.add(sr.site(site));
+                }
+                return matchFirst(rules);
             }
             
         };
@@ -168,9 +171,11 @@ public class Madalert {
 
             @Override
             public Rule site(String site) {
-                return matchAll(Arrays.asList(siteRules).stream()
-                        .map(s -> s.site(site))
-                        .collect(Collectors.toList()));
+                List<Rule> rules = new ArrayList<Rule>();
+                for(SiteRule sr : Arrays.asList(siteRules)){
+                    rules.add(sr.site(site));
+                }
+                return matchAll(rules);
             }
             
         };
@@ -371,7 +376,7 @@ public class Madalert {
         };
     }
     
-    public static SiteTestSet forCell(String rowSite, String colSite, int rowCheck, int colCheck) {
+    public static SiteTestSet forCell(final String rowSite, final String colSite, final int rowCheck, final int colCheck) {
         return new SiteTestSet() {
 
             @Override
@@ -412,7 +417,7 @@ public class Madalert {
         };
     }
     
-    public static SiteTestSet forCheck(int rowCheck, int colCheck) {
+    public static SiteTestSet forCheck(final int rowCheck, final int colCheck) {
         return new SiteTestSet() {
 
             @Override

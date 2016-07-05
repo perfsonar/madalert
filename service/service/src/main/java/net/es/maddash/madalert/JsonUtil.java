@@ -22,7 +22,7 @@ public class JsonUtil {
      * @param array a non-null JSON array
      * @return the content as a List
      */
-    public static List<String> toListString(JsonArray array) {
+    public static List<String> toListString(final JsonArray array) {
         return new AbstractList<String>() {
 
             @Override

@@ -79,7 +79,7 @@ public class Report {
     }
     
     public List<Problem> getSiteProblems(String site) {
-        return (siteProblems.get(site) == null) ? Collections.emptyList() : siteProblems.get(site);
+        return (siteProblems.get(site) == null) ? new ArrayList<Problem>() : siteProblems.get(site);
     }
     
     public List<String> getSites() {
@@ -87,11 +87,24 @@ public class Report {
     }
     
     public int getGlobalMaxSeverity() {
-        return globalProblems.stream().mapToInt(p -> p.getSeverity()).max().orElse(0);
+        int max = 0;
+        for(Problem gp: globalProblems){
+            if(gp.getSeverity() > max){
+                max = gp.getSeverity();
+            }
+        }
+        return max;
     }
     
     public int getSiteMaxSeverity(String site) {
-        return getSiteProblems(site).stream().mapToInt(p -> p.getSeverity()).max().orElse(0);
+        int max = 0;
+        for(Problem p: getSiteProblems(site)){
+            if(p.getSeverity() > max){
+                max = p.getSeverity();
+            }
+        }
+        
+        return max;
     }
     
     private static void addStats(JsonObjectBuilder jsonSite, int[] stats) {
