@@ -33,6 +33,7 @@ public abstract class BaseMesh implements Mesh{
     
     @Override
     public int nSeverityLevels() {
-        return this.getStatusLabels().size();
+        //make sure we include a slot for each default state even if they don't all have labels
+        return this.getStatusLabels().size() > 6 ? this.getStatusLabels().size() : 6;
     }
 }
