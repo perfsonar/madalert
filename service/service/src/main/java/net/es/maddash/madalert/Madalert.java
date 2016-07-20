@@ -431,12 +431,12 @@ public class Madalert {
                             for (int col = 0; col < mesh.getColumnNames().size(); col++) {
                                 String colName = mesh.getColumnNames().get(col);
                                 if( mesh.hasColumn(row, col)){
-                                    if(rowCheck >= 0 && site.equals(rowName)){
+                                    if(rowCheck >= 0 && mesh.getCheckCount() > rowCheck && site.equals(rowName)){
                                         instance.match(row, col, rowCheck,
                                                 mesh.statusFor(row, col, rowCheck));
                                     }
                                     //only add column check, if different row name or same row but different check
-                                    if(colCheck >= 0 && site.equals(colName) && !(rowName.equals(colName) && rowCheck == colCheck)){
+                                    if(colCheck >= 0 && mesh.getCheckCount() > colCheck && site.equals(colName) && !(rowName.equals(colName) && rowCheck == colCheck)){
                                         instance.match(row, col, colCheck,
                                                 mesh.statusFor(row, col, colCheck));
                                     }
